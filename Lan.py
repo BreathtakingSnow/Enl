@@ -7,7 +7,7 @@ import tempfile
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
     QFileDialog, QListWidget, QListWidgetItem, QMessageBox, QHBoxLayout,
-    QSplitter, QFrame
+    QSplitter, QFrame, QSizePolicy
 )
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QCursor, QColor
 from PyQt5.QtCore import Qt, QPoint, QSize
@@ -76,11 +76,13 @@ class FavoritesBar(QHBoxLayout):
         self.refresh_favorites()
 
     def refresh_favorites(self):
+        # Clear existing favorites
         while self.count() > 0:
             item = self.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         
+        # Add favorites buttons
         for fav in GameManager.load_favorites():
             btn = QPushButton()
             btn.setStyleSheet("""
@@ -106,6 +108,7 @@ class FavoritesBar(QHBoxLayout):
             btn.clicked.connect(lambda _, p=fav['path']: self.parent.launch_path(p))
             self.addWidget(btn)
         
+        # Add button for new favorites
         add_fav_btn = QPushButton(ADD_ICON)
         add_fav_btn.setStyleSheet("""
             QPushButton {
@@ -240,18 +243,40 @@ class GameDetails(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setSpacing(20)
         
+        # Banner placeholder
+        self.banner = QLabel()
+        self.banner.setFixedHeight(200)
+        self.banner.setAlignment(Qt.AlignCenter)
+        self.banner.setText("Баннер игры")
+        self.banner.setStyleSheet("""
+            background-color: #121212; 
+            color: #707070;
+            border-radius: 8px;
+            font-size: 18px;
+        """)
+        self.layout.addWidget(self.banner)
+
+        # Game details section
         details_header = QHBoxLayout()
         details_header.setContentsMargins(0, 0, 0, 0)
         details_header.setSpacing(20)
         
+        # Icon container with proper scaling
+        icon_container = QWidget()
+        icon_container.setFixedSize(80, 80)
+        icon_layout = QVBoxLayout(icon_container)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        icon_layout.setAlignment(Qt.AlignCenter)
+        
         self.icon = QLabel()
-        self.icon.setFixedSize(80, 80)
-        self.icon.setStyleSheet("""
-            background-color: #121212; 
-            border-radius: 8px;
-        """)
+        self.icon.setFixedSize(72, 72)
         self.icon.setAlignment(Qt.AlignCenter)
-        details_header.addWidget(self.icon)
+        self.icon.setStyleSheet("""
+            background-color: transparent; 
+            border: none;
+        """)
+        icon_layout.addWidget(self.icon)
+        details_header.addWidget(icon_container)
         
         name_container = QVBoxLayout()
         self.name = QLabel("Выберите игру")
@@ -271,6 +296,7 @@ class GameDetails(QWidget):
         details_header.addLayout(name_container, 1)
         self.layout.addLayout(details_header)
 
+        # Play button
         button_container = QHBoxLayout()
         self.play_button = QPushButton("▶ Играть")
         self.play_button.setStyleSheet('''
@@ -295,7 +321,6 @@ class GameDetails(QWidget):
         self.play_button.setEnabled(False)
         self.play_button.clicked.connect(parent.play_selected_game)
         button_container.addWidget(self.play_button, alignment=Qt.AlignCenter)
-        self.layout.addStretch()
         self.layout.addLayout(button_container)
 
     def display_details(self, game):
@@ -304,21 +329,25 @@ class GameDetails(QWidget):
         if game.get('icon') and os.path.exists(game['icon']):
             pixmap = QPixmap(game['icon'])
             if not pixmap.isNull():
-                pixmap = pixmap.scaled(72, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                self.icon.setPixmap(pixmap)
+                # Scale while preserving aspect ratio
+                scaled_pixmap = pixmap.scaled(
+                    self.icon.width(), self.icon.height(),
+                    Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+                self.icon.setPixmap(scaled_pixmap)
             else:
                 self.icon.clear()
-                self.icon.setText("Нет иконки")
+                self.icon.setText("")
         else:
             self.icon.clear()
-            self.icon.setText("Нет иконки")
+            self.icon.setText("")
         self.play_button.setEnabled(True)
 
     def clear_details(self):
         self.name.setText("Выберите игру")
         self.path_label.setText("")
         self.icon.clear()
-        self.icon.setText("Нет иконки")
+        self.icon.setText("")
         self.play_button.setEnabled(False)
 
 
@@ -357,8 +386,8 @@ class GameLauncher(QWidget):
                 background-color: #1a1a1a;
             }
             QSplitter::handle {
-                background-color: #2a2a2a;
-                width: 5px;
+                background-color: #121212;
+                width: 1px;
             }
         """)
 
@@ -366,6 +395,7 @@ class GameLauncher(QWidget):
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
 
+        # Top bar with window controls
         top_bar = QHBoxLayout()
         top_bar.setContentsMargins(10, 0, 10, 0)
         top_bar.setSpacing(15)
@@ -377,10 +407,12 @@ class GameLauncher(QWidget):
 
         top_bar.addStretch()
 
+        # Favorites section
         self.favorites_bar = FavoritesBar(self)
         top_bar.addLayout(self.favorites_bar)
         top_bar.addStretch()
 
+        # Settings button
         settings_btn = QPushButton("⚙")
         settings_btn.setFixedSize(32, 32)
         settings_btn.setStyleSheet("font-size: 16px;")
@@ -388,6 +420,7 @@ class GameLauncher(QWidget):
         settings_btn.clicked.connect(self.show_settings)
         top_bar.addWidget(settings_btn)
 
+        # Window control buttons
         minimize_btn = QPushButton("–")
         minimize_btn.setFixedSize(32, 32)
         minimize_btn.setStyleSheet("font-size: 18px;")
@@ -403,10 +436,18 @@ class GameLauncher(QWidget):
 
         main_layout.addLayout(top_bar)
 
+        # Main content area with resizable splitter
         content_splitter = QSplitter(Qt.Horizontal)
-        content_splitter.setHandleWidth(5)
+        content_splitter.setHandleWidth(1)  # Make the handle thinner
         content_splitter.setChildrenCollapsible(False)
+        content_splitter.setStyleSheet("""
+            QSplitter::handle:horizontal {
+                background-color: #2a2a2a;
+                width: 1px;
+            }
+        """)
         
+        # Left panel - Game list
         left_container = QWidget()
         left_layout = QVBoxLayout(left_container)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -430,6 +471,7 @@ class GameLauncher(QWidget):
         
         content_splitter.addWidget(left_container)
 
+        # Right panel - Game details
         right_container = QWidget()
         right_layout = QVBoxLayout(right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
@@ -444,6 +486,7 @@ class GameLauncher(QWidget):
         
         content_splitter.addWidget(right_container)
         
+        # Set initial sizes (30% for left, 70% for right)
         content_splitter.setSizes([int(self.width() * 0.3), int(self.width() * 0.7)])
         
         main_layout.addWidget(content_splitter, 1)
@@ -494,6 +537,7 @@ class GameLauncher(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Ошибка запуска", str(e))
 
+    # Window dragging and resizing functions
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.dragging = event.y() < 50
