@@ -39,6 +39,7 @@ class AnimatedBackground(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        painter.setOpacity(0.25)  # 25% прозрачности
         
         visible_width = self.width() // 2
         full_width = self.width()
@@ -199,21 +200,22 @@ class GameList(QListWidget):
         self.parent = parent
         self.setStyleSheet('''
             QListWidget {
-                background-color: rgba(26, 26, 26, 220);
+                background-color: transparent;
                 color: #e0e0e0;
                 font-size: 16px;
                 border: none;
-                border-radius: 8px;
             }
             QListWidget::item {
                 height: 50px;
-                border-bottom: 1px solid #2a2a2a;
                 padding-left: 10px;
+                background-color: rgba(26, 26, 26, 180);
+                border-bottom: 1px solid #2a2a2a;
+                border-radius: 4px;
+                margin-bottom: 5px;
             }
             QListWidget::item:selected {
                 background-color: rgba(42, 42, 42, 220);
                 color: #ffffff;
-                border-radius: 4px;
             }
             QListWidget::item:hover {
                 background-color: rgba(42, 42, 42, 220);
@@ -269,8 +271,7 @@ class GameDetails(QWidget):
         super().__init__()
         self.parent = parent
         self.setStyleSheet("""
-            background-color: rgba(26, 26, 26, 220); 
-            border-radius: 8px; 
+            background-color: transparent; 
             padding: 20px;
         """)
         self.layout = QVBoxLayout(self)
@@ -281,7 +282,7 @@ class GameDetails(QWidget):
         self.banner.setAlignment(Qt.AlignCenter)
         self.banner.setText("Баннер игры")
         self.banner.setStyleSheet("""
-            background-color: rgba(18, 18, 18, 220); 
+            background-color: rgba(18, 18, 18, 200); 
             color: #707070;
             border-radius: 8px;
             font-size: 18px;
@@ -342,7 +343,7 @@ class GameDetails(QWidget):
                 background-color: #059669;
             }
             QPushButton:disabled {
-                background-color: rgba(26, 26, 26, 220);
+                background-color: rgba(26, 26, 26, 180);
                 color: #606060;
             }
         ''')
@@ -393,45 +394,10 @@ class GameLauncher(QWidget):
         self.resize_dir = None
         self.selected_game_path = None
 
-        self.setStyleSheet("""
-            QWidget {
-                background-color: rgba(18, 18, 18, 150);
-                color: #e0e0e0;
-                font-family: 'Segoe UI';
-            }
-            QPushButton {
-                background-color: rgba(42, 42, 42, 200);
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                font-weight: bold;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: rgba(58, 58, 58, 200);
-            }
-            QPushButton:pressed {
-                background-color: rgba(26, 26, 26, 200);
-            }
-            QSplitter::handle {
-                background-color: rgba(18, 18, 18, 150);
-                width: 1px;
-            }
-        """)
-
-        # Создаем анимированный фон
-        background_image_path = "assets/1.png" 
-        
+        # Создаем анимированный фон для всего окна
+        background_image_path = "assets/1.png"
         if os.path.exists(background_image_path):
             self.background = AnimatedBackground(self, background_image_path)
-            self.background.setGeometry(0, 0, self.width(), self.height())
-            self.background.lower()  # Отправляем фон на задний план
-            self.background.setStyleSheet("background: transparent;")
-        else:
-            print(f"Background image not found: {background_image_path}")
-            self.background = QWidget(self)
-            self.background.setStyleSheet("background: black;")
-            self.background.setGeometry(0, 0, self.width(), self.height())
             self.background.lower()
 
         main_layout = QVBoxLayout(self)
@@ -475,6 +441,12 @@ class GameLauncher(QWidget):
 
         main_layout.addLayout(top_bar)
 
+        # Создаем контейнер для центральной области
+        content_container = QWidget()
+        content_container.setObjectName("contentContainer")
+        content_container_layout = QVBoxLayout(content_container)
+        content_container_layout.setContentsMargins(0, 0, 0, 0)
+        
         content_splitter = QSplitter(Qt.Horizontal)
         content_splitter.setHandleWidth(1) 
         content_splitter.setChildrenCollapsible(False)
@@ -486,7 +458,7 @@ class GameLauncher(QWidget):
         """)
 
         left_container = QWidget()
-        left_container.setStyleSheet("background: rgba(26, 26, 26, 200); border-radius: 8px;")
+        left_container.setObjectName("leftContainer")
         left_layout = QVBoxLayout(left_container)
         left_layout.setContentsMargins(10, 10, 10, 10)
         left_layout.setSpacing(15)
@@ -510,7 +482,7 @@ class GameLauncher(QWidget):
         content_splitter.addWidget(left_container)
 
         right_container = QWidget()
-        right_container.setStyleSheet("background: rgba(26, 26, 26, 200); border-radius: 8px;")
+        right_container.setObjectName("rightContainer")
         right_layout = QVBoxLayout(right_container)
         right_layout.setContentsMargins(10, 10, 10, 10)
         right_layout.setSpacing(15)
@@ -520,17 +492,53 @@ class GameLauncher(QWidget):
         right_layout.addWidget(details_label)
         
         self.game_details = GameDetails(self)
-        self.game_details.setStyleSheet("background: rgba(26, 26, 26, 200);")
         right_layout.addWidget(self.game_details)
         
         content_splitter.addWidget(right_container)
 
         content_splitter.setSizes([int(self.width() * 0.3), int(self.width() * 0.7)])
         
-        main_layout.addWidget(content_splitter, 1)
+        content_container_layout.addWidget(content_splitter)
+        main_layout.addWidget(content_container, 1)
+
+        # Установка стилей
+        self.setStyleSheet("""
+            GameLauncher {
+                background-color: rgb(18, 18, 18);
+            }
+            #contentContainer {
+                background: transparent;
+                border-radius: 8px;
+            }
+            QWidget {
+                color: #e0e0e0;
+                font-family: 'Segoe UI';
+            }
+            QPushButton {
+                background-color: rgba(42, 42, 42, 200);
+                border: none;
+                border-radius: 5px;
+                padding: 10px;
+                font-weight: bold;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: rgba(58, 58, 58, 200);
+            }
+            QPushButton:pressed {
+                background-color: rgba(26, 26, 26, 200);
+            }
+            QSplitter::handle {
+                background-color: rgba(18, 18, 18, 150);
+                width: 1px;
+            }
+            QWidget#leftContainer, QWidget#rightContainer {
+                background: transparent;
+            }
+        """)
 
     def resizeEvent(self, event):
-        """Update background size when window is resized"""
+        """Обновляем размер фона при изменении размера окна"""
         super().resizeEvent(event)
         if hasattr(self, 'background'):
             self.background.setGeometry(0, 0, self.width(), self.height())
